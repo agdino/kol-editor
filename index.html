@@ -1,11 +1,97 @@
-
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8" />
   <title>KOL 資料互動編輯系統</title>
+  <style>
+    body {{ font-family: sans-serif; margin: 20px; }}
+    #form label {{ font-weight: bold; margin-top: 8px; }}
+    #form input {{ margin-bottom: 6px; }}
+    .row {{ padding: 5px; cursor: pointer; border-bottom: 1px solid #eee; }}
+    .row:hover {{ background-color: #f0f0f0; }}
+  </style>
 </head>
 <body>
-  <h1>⚠️ 請重新上傳 HTML 檔案後再試一次</h1>
+  <h1>KOL 資料互動編輯系統</h1>
+  <a href="https://docs.google.com/spreadsheets/d/1Benpo3LKBAfhRAVaI9h_h4lDMiMxqxl6B53zTp-KkqM/edit?gid=527810604" target="_blank">📄 前往原始表單</a>
+  <button onclick="addNewRow()">➕ 新增資料</button>
+  <div style="display: flex; gap: 20px;">
+    <form id="form" style="flex: 2; display: flex; flex-direction: column;"></form>
+    <div id="row-list" style="flex: 1; max-height: 70vh; overflow-y: auto; border: 1px solid #ccc; padding: 10px;"></div>
+  </div>
+  <div style="margin-top: 10px;">
+    <button onclick="saveData()">💾 儲存</button>
+    <button onclick="clearForm()">❌ 取消</button>
+  </div>
+
+  <script>
+    const apiUrl = "https://script.google.com/macros/s/AKfycbzocExluFPJE4sufnJUn2ofUZlMMqeJo9sfBmnPZW0NlO7w9JNT3OGAOQek4yfoT8o/exec";
+    let headers = [];
+    let rows = [];
+    let currentRow = null;
+
+    async function loadData() {{
+      const res = await fetch(apiUrl);
+      const data = await res.json();
+      headers = (data.headers || []).filter(h => h && h.trim() !== "");
+      rows = data.rows || [];
+
+      const list = document.getElementById("row-list");
+      list.innerHTML = "";
+      rows.forEach((r, i) => {{
+        const item = document.createElement("div");
+        item.className = "row";
+        item.textContent = r["No."] || ("No." + (i + 1));
+        item.onclick = () => fillForm(r);
+        list.appendChild(item);
+      }});
+
+      const form = document.getElementById("form");
+      form.innerHTML = "";
+      headers.forEach(h => {{
+        const label = document.createElement("label");
+        label.textContent = h;
+        const input = document.createElement("input");
+        input.name = h;
+        form.appendChild(label);
+        form.appendChild(input);
+      }});
+    }}
+
+    function fillForm(row) {{
+      currentRow = row;
+      headers.forEach(h => {{
+        const input = document.querySelector(`input[name="${{h}}"]`);
+        if (input) input.value = row[h] || "";
+      }});
+    }}
+
+    function clearForm() {{
+      currentRow = null;
+      document.querySelectorAll("#form input").forEach(i => i.value = "");
+    }}
+
+    async function saveData() {{
+      if (!currentRow) return alert("請先選取一筆資料");
+      const newData = {{}};
+      document.querySelectorAll("#form input").forEach(i => newData[i.name] = i.value);
+      const res = await fetch(apiUrl, {{
+        method: "POST",
+        body: JSON.stringify(newData)
+      }});
+      alert("✅ 已儲存");
+      loadData();
+    }}
+
+    async function addNewRow() {{
+      const res = await fetch(apiUrl + "?mode=empty");
+      const result = await res.json();
+      if (!result.empty) return alert("❌ 沒有可用的空白列");
+      currentRow = result.empty;
+      fillForm(currentRow);
+    }}
+
+    window.onload = loadData;
+  </script>
 </body>
 </html>
